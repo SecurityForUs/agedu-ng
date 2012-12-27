@@ -1,0 +1,38 @@
+# -*- sh -*-
+#
+# bob script to build the agedu tarball.
+
+module agedu
+
+in agedu do sed '/AC_INIT/s/6.66/r$(revision)/' configure.ac > tmp.ac
+in agedu do mv tmp.ac configure.ac
+in agedu do ./mkauto.sh
+
+# Build the man page. This also tests the automake setup to ensure
+# configure actually works; but we use a self-delegation (i.e. do all
+# of this in a throwaway copy of the build directory) to avoid
+# accidentally shipping any outputs of configure. Instead we return
+# only the actual man page from the delegation environment.
+delegate -
+  in agedu do ./configure
+  in agedu do make doc
+  return agedu/*.1
+enddelegate
+
+in . do cp -R agedu agedu-r$(revision)
+in . do tar chzvf agedu-r$(revision).tar.gz agedu-r$(revision)
+
+in agedu do halibut --html=manpage.html agedu.but
+in agedu do halibut --html=tree.html tree.but
+
+deliver agedu-r$(revision).tar.gz $@
+deliver agedu/manpage.html $@
+deliver agedu/tree.html $@
+
+delegate windows
+  # FIXME: Cygwin alternative?
+  in agedu do cmd /c vcvars32 \& cl winscan.c
+  return agedu/winscan.exe
+enddelegate
+
+deliver agedu/winscan.exe ageduscan.exe
